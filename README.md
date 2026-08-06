@@ -8,6 +8,6 @@ UI 组件实验仓库。
 
 AI 聊天输入框组件（含工具栏、状态控制等）。
 
-- Source: [html/chat-input.html](html/chat-input.html)
+- Source: [Components/Chat Input/chat-input.html](Components/Chat%20Input/chat-input.html)
 
 ![Chat Input](./assets/chat-input.png)
