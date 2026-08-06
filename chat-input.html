@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat Input Component</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+
+  .chat-input-wrapper {
+    width: 680px;
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e5e5e5;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  /* ---- Input Area ---- */
+  .input-area {
+    padding: 14px 18px 8px;
+  }
+  .input-area textarea {
+    width: 100%;
+    border: none;
+    outline: none;
+    resize: none;
+    font-size: 15px;
+    line-height: 1.6;
+    color: #1a1a1a;
+    min-height: 24px;
+    max-height: 160px;
+    font-family: inherit;
+  }
+  .input-area textarea::placeholder {
+    color: #b0b0b0;
+  }
+
+  /* ---- Toolbar ---- */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px 10px 14px;
+    gap: 0;
+  }
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .toolbar-spacer {
+    flex: 1;
+  }
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  /* ---- Mode Switcher (Chat / Work) ---- */
+  .mode-switcher {
+    display: flex;
+    background: #f0f0f0;
+    border-radius: 8px;
+    padding: 2px;
+    margin-right: 8px;
+    position: relative;
+  }
+  .mode-slider {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    height: calc(100% - 4px);
+    width: calc(50% - 2px);
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .mode-switcher.work-active .mode-slider {
+    transform: translateX(100%);
+  }
+  .mode-btn {
+    padding: 4px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    color: #888;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color 0.2s;
+    white-space: nowrap;
+    position: relative;
+    z-index: 1;
+  }
+  .mode-btn.active {
+    color: #1a1a1a;
+  }
+  .mode-btn:hover:not(.active) {
+    color: #555;
+  }
+
+  /* ---- Dropdown Selector (plain text + chevron, no border) ---- */
+  .selector {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  .selector-btn {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 6px;
+    font-size: 13px;
+    color: #666;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .selector-btn:hover {
+    color: #333;
+    background: #f5f5f5;
+  }
+  .selector-btn .chevron {
+    font-size: 10px;
+    color: #aaa;
+    transition: transform 0.2s;
+  }
+  .selector.open .selector-btn .chevron {
+    transform: rotate(180deg);
+  }
+
+  .selector-dropdown {
+    position: fixed;
+    min-width: 180px;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    padding: 4px;
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px);
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+  }
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: #333;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .dropdown-item:hover {
+    background: #f5f5f5;
+  }
+  .dropdown-item.selected {
+    background: #eef3ff;
+    color: #3b6ef6;
+  }
+  .dropdown-item .item-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .dropdown-item .item-label { flex: 1; }
+  .dropdown-item .item-tag {
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: #f0f0f0;
+    color: #999;
+  }
+  .dropdown-item.selected .item-tag {
+    background: #dce5ff;
+    color: #3b6ef6;
+  }
+
+  /* Work mode dropdown */
+  .selector-dropdown.work-dropdown {
+    min-width: 200px;
+    padding: 0;
+  }
+  .work-list {
+    padding: 6px;
+    overflow-y: auto;
+  }
+  .work-list .search-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    border-radius: 7px;
+    background: #f5f5f5;
+  }
+  .work-list .search-box svg {
+    width: 14px; height: 14px; color: #bbb; flex-shrink: 0;
+  }
+  .work-list .search-box input {
+    border: none; outline: none; background: transparent;
+    font-size: 12px; color: #333; width: 100%; font-family: inherit;
+  }
+  .work-list .search-box input::placeholder { color: #bbb; }
+  .work-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    font-size: 13px;
+    color: #333;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background 0.12s;
+    white-space: nowrap;
+  }
+  .work-item:hover { background: #f5f5f5; }
+  .work-item.selected { background: #eef3ff; color: #3b6ef6; }
+  .work-item .check {
+    width: 14px; height: 14px; opacity: 0; flex-shrink: 0;
+  }
+  .work-item.selected .check { opacity: 1; }
+  .work-item .model-tag {
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: #f0f0f0;
+    color: #999;
+    margin-left: 6px;
+  }
+  .work-item.selected .model-tag {
+    background: #dce5ff; color: #3b6ef6;
+  }
+  .work-detail {
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 0;
+    width: 220px;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    padding: 14px 16px;
+    opacity: 0;
+    transform: translateX(-4px);
+    visibility: hidden;
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+    pointer-events: none;
+    z-index: 110;
+  }
+  .work-detail.visible {
+    opacity: 1;
+    transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
+  }
+  .work-detail .detail-header {
+    font-size: 11px;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+  }
+  .work-detail .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 13px;
+  }
+  .work-detail .detail-row + .detail-row {
+    border-top: 1px solid #f5f5f5;
+  }
+  .work-detail .detail-label {
+    color: #999;
+  }
+  .work-detail .detail-value {
+    color: #1a1a1a;
+    font-weight: 500;
+  }
+  .work-detail .detail-value.reasoning-yes {
+    color: #34a853;
+  }
+
+  /* Chat mode icons */
+  .icon-knowledge { background: #e8f0fe; color: #4285f4; }
+  .icon-analytics { background: #e6f4ea; color: #34a853; }
+  .icon-code { background: #fce8e6; color: #ea4335; }
+  .icon-doc { background: #fef7e0; color: #fbbc04; }
+
+  /* ---- Plus Button ---- */
+  .plus-wrapper {
+    position: relative;
+  }
+  .plus-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #888;
+    transition: all 0.15s;
+  }
+  .plus-btn:hover {
+    background: #f0f0f0;
+    color: #555;
+  }
+  .plus-btn svg {
+    width: 18px;
+    height: 18px;
+    transition: transform 0.2s ease;
+  }
+  .plus-btn.open svg {
+    transform: rotate(45deg);
+  }
+
+  /* ---- Plus Panel (expand upward) ---- */
+  .plus-panel {
+    position: fixed;
+    min-width: 200px;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    padding: 4px;
+    z-index: 100;
+    opacity: 0;
+    transform: translateY(6px);
+    visibility: hidden;
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+  }
+  .plus-panel.visible {
+    opacity: 1;
+    transform: translateY(0);
+    visibility: visible;
+  }
+  .plus-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: #333;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .plus-item:hover {
+    background: #f5f5f5;
+  }
+  .plus-item .shortcut {
+    font-size: 12px;
+    color: #aaa;
+    font-family: -apple-system, sans-serif;
+  }
+
+  /* ---- Action Buttons (from original) ---- */
+  .action-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    font-size: 13px;
+    color: #555;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .action-btn:hover {
+    background: #f0f0f0;
+  }
+  .action-btn svg {
+    width: 16px;
+    height: 16px;
+    fill: #888;
+  }
+
+  /* ---- Send Button ---- */
+  .send-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: #d9d9d9;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: not-allowed;
+    transition: all 0.2s;
+  }
+  .send-btn.active {
+    background: #1a1a1a;
+    cursor: pointer;
+  }
+  .send-btn.active:hover {
+    background: #333;
+  }
+  .send-btn svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
+
+  /* ---- Divider ---- */
+  .toolbar-divider {
+    width: 1px;
+    height: 18px;
+    background: #e5e5e5;
+    margin: 0 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="chat-input-wrapper">
+  <div class="input-area">
+    <textarea id="msgInput" rows="1" placeholder="@指定上下文, /唤起指令"></textarea>
+  </div>
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <!-- Plus Button (before mode switcher) -->
+      <div class="plus-wrapper" id="plusWrapper">
+        <button class="plus-btn" id="plusBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      </div>
+
+      <!-- Mode Switcher -->
+      <div class="mode-switcher" id="modeSwitcher">
+        <div class="mode-slider"></div>
+        <button class="mode-btn active" data-mode="chat">Chat</button>
+        <button class="mode-btn" data-mode="work">Work</button>
+      </div>
+    </div>
+
+    <div class="toolbar-spacer"></div>
+
+    <div class="toolbar-right">
+      <!-- Context Selector (right side, plain text style) -->
+      <div class="selector" id="contextSelector">
+        <button class="selector-btn" id="selectorBtn">
+          <span id="selectorLabel">企业知识</span>
+          <span class="chevron">▾</span>
+        </button>
+      </div>
+
+      <div class="toolbar-divider"></div>
+
+      <button class="send-btn" id="sendBtn">
+        <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8-8-8z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Floating panels (outside wrapper to avoid overflow clipping) -->
+<!-- Plus panel -->
+<div class="plus-panel" id="plusPanel">
+  <div class="plus-item" data-action="images">
+    <span>Images and files</span>
+    <span class="shortcut">⌘U</span>
+  </div>
+  <div class="plus-item" data-action="commands">
+    <span>Commands</span>
+    <span class="shortcut">/</span>
+  </div>
+  <div class="plus-item" data-action="context">
+    <span>Context</span>
+    <span class="shortcut">@</span>
+  </div>
+  <div class="plus-item" data-action="shell">
+    <span>Shell command</span>
+    <span class="shortcut">!</span>
+  </div>
+</div>
+
+<!-- Chat mode dropdown -->
+<div class="selector-dropdown" id="chatDropdown">
+  <div class="dropdown-item selected" data-value="企业知识">
+    <span class="item-label">企业知识</span>
+    <span class="item-tag">默认</span>
+  </div>
+  <div class="dropdown-item" data-value="智能问数">
+    <span class="item-label">智能问数</span>
+  </div>
+  <div class="dropdown-item" data-value="代码洞察">
+    <span class="item-label">代码洞察</span>
+  </div>
+  <div class="dropdown-item" data-value="文档助手">
+    <span class="item-label">文档助手</span>
+  </div>
+</div>
+
+<!-- Work mode dropdown -->
+<div class="selector-dropdown work-dropdown" id="workDropdown">
+  <div class="work-list" id="workList">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" placeholder="搜索模型" id="modelSearch">
+    </div>
+    <div class="work-item selected" data-value="GPT-4.1" data-provider="OpenAI" data-input="文本 / 图片" data-reasoning="1" data-context="1,000,000">
+      <span>GPT-4.1 <span class="model-tag">最新</span></span>
+      <svg class="check" viewBox="0 0 24 24" fill="none" stroke="#3b6ef6" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div class="work-item" data-value="Claude 4 Sonnet" data-provider="Anthropic" data-input="文本 / 图片" data-reasoning="1" data-context="200,000">
+      <span>Claude 4 Sonnet <span class="model-tag">推荐</span></span>
+      <svg class="check" viewBox="0 0 24 24" fill="none" stroke="#3b6ef6" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div class="work-item" data-value="Gemini 2.5 Pro" data-provider="Google" data-input="文本 / 图片 / 视频" data-reasoning="1" data-context="1,000,000">
+      <span>Gemini 2.5 Pro</span>
+      <svg class="check" viewBox="0 0 24 24" fill="none" stroke="#3b6ef6" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div class="work-item" data-value="DeepSeek R1" data-provider="DeepSeek" data-input="文本" data-reasoning="1" data-context="128,000">
+      <span>DeepSeek R1</span>
+      <svg class="check" viewBox="0 0 24 24" fill="none" stroke="#3b6ef6" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <div class="work-item" data-value="Grok 3" data-provider="xAI" data-input="文本 / 图片" data-reasoning="0" data-context="131,072">
+      <span>Grok 3</span>
+      <svg class="check" viewBox="0 0 24 24" fill="none" stroke="#3b6ef6" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+  </div>
+  <div class="work-detail" id="workDetail">
+    <div class="detail-header">特点</div>
+    <div class="detail-row"><span class="detail-label">模型</span><span class="detail-value" id="detailModel">GPT-4.1</span></div>
+    <div class="detail-row"><span class="detail-label">提供商</span><span class="detail-value" id="detailProvider">OpenAI</span></div>
+    <div class="detail-row"><span class="detail-label">输入</span><span class="detail-value" id="detailInput">文本 / 图片</span></div>
+    <div class="detail-row"><span class="detail-label">推理</span><span class="detail-value reasoning-yes" id="detailReasoning">支持推理</span></div>
+    <div class="detail-row"><span class="detail-label">上下文</span><span class="detail-value" id="detailContext">1,000,000</span></div>
+  </div>
+</div>
+
+<script>
+  const modeBtns = document.querySelectorAll('.mode-btn');
+  const modeSwitcher = document.getElementById('modeSwitcher');
+  const selector = document.getElementById('contextSelector');
+  const selectorBtn = document.getElementById('selectorBtn');
+  const selectorLabel = document.getElementById('selectorLabel');
+  const chatDropdown = document.getElementById('chatDropdown');
+  const workDropdown = document.getElementById('workDropdown');
+  const msgInput = document.getElementById('msgInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const plusWrapper = document.getElementById('plusWrapper');
+  const plusBtn = document.getElementById('plusBtn');
+  const plusPanel = document.getElementById('plusPanel');
+  let plusOpen = false;
+
+  let currentMode = 'chat';
+
+  // Mode switching
+  modeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      modeBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentMode = btn.dataset.mode;
+      if (currentMode === 'work') {
+        modeSwitcher.classList.add('work-active');
+      } else {
+        modeSwitcher.classList.remove('work-active');
+      }
+      // Switch dropdown
+      if (currentMode === 'chat') {
+        const sel = chatDropdown.querySelector('.dropdown-item.selected');
+        if (sel) selectorLabel.textContent = sel.dataset.value;
+      } else {
+        const sel = workDropdown.querySelector('.work-item.selected');
+        if (sel) selectorLabel.textContent = sel.dataset.value;
+      }
+      closeDropdown();
+    });
+  });
+
+  // Toggle dropdown
+  let dropdownOpen = false;
+  selectorBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dropdownOpen = !dropdownOpen;
+    if (dropdownOpen) {
+      openDropdown();
+    } else {
+      closeDropdown();
+    }
+  });
+
+  function openDropdown() {
+    dropdownOpen = true;
+    const rect = selectorBtn.getBoundingClientRect();
+    const activeDropdown = currentMode === 'chat' ? chatDropdown : workDropdown;
+    // Position dropdown below the button, right-aligned
+    activeDropdown.style.position = 'fixed';
+    activeDropdown.style.top = (rect.bottom + 6) + 'px';
+    activeDropdown.style.left = '';
+    activeDropdown.style.right = (window.innerWidth - rect.right) + 'px';
+    activeDropdown.style.opacity = '1';
+    activeDropdown.style.visibility = 'visible';
+    activeDropdown.style.transform = 'translateY(0)';
+    // Hide the other
+    const otherDropdown = currentMode === 'chat' ? workDropdown : chatDropdown;
+    otherDropdown.style.opacity = '0';
+    otherDropdown.style.visibility = 'hidden';
+    otherDropdown.style.transform = 'translateY(-6px)';
+  }
+
+  function closeDropdown() {
+    dropdownOpen = false;
+    chatDropdown.style.opacity = '0';
+    chatDropdown.style.visibility = 'hidden';
+    chatDropdown.style.transform = 'translateY(-6px)';
+    workDropdown.style.opacity = '0';
+    workDropdown.style.visibility = 'hidden';
+    workDropdown.style.transform = 'translateY(-6px)';
+  }
+
+  document.addEventListener('click', (e) => {
+    closeDropdown();
+    closePlus();
+  });
+
+  // Plus button toggle
+  plusBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    plusOpen = !plusOpen;
+    if (plusOpen) {
+      openPlus();
+    } else {
+      closePlus();
+    }
+  });
+
+  function openPlus() {
+    plusOpen = true;
+    plusBtn.classList.add('open');
+    const rect = plusBtn.getBoundingClientRect();
+    plusPanel.style.bottom = '';
+    plusPanel.style.top = (rect.top - plusPanel.offsetHeight - 6) + 'px';
+    plusPanel.style.left = rect.left + 'px';
+    plusPanel.classList.add('visible');
+  }
+
+  function closePlus() {
+    plusOpen = false;
+    plusBtn.classList.remove('open');
+    plusPanel.classList.remove('visible');
+  }
+
+  // Plus panel items
+  document.querySelectorAll('.plus-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // just insert the shortcut into textarea as a demo
+      const shortcut = item.querySelector('.shortcut').textContent;
+      msgInput.value += shortcut;
+      msgInput.focus();
+      msgInput.dispatchEvent(new Event('input'));
+      closePlus();
+    });
+  });
+
+  // Dropdown item selection (chat mode)
+  chatDropdown.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const item = e.target.closest('.dropdown-item');
+    if (!item) return;
+    chatDropdown.querySelectorAll('.dropdown-item').forEach(i => i.classList.remove('selected'));
+    item.classList.add('selected');
+    selectItem(item, 'chat');
+    closeDropdown();
+  });
+
+  // Work mode — hover to show detail, click to select
+  const workItems = document.querySelectorAll('.work-item');
+  const detailModel = document.getElementById('detailModel');
+  const detailProvider = document.getElementById('detailProvider');
+  const detailInput = document.getElementById('detailInput');
+  const detailReasoning = document.getElementById('detailReasoning');
+  const detailContext = document.getElementById('detailContext');
+  const workDetail = document.getElementById('workDetail');
+
+  function updateDetail(item) {
+    if (!item) return;
+    detailModel.textContent = item.dataset.value;
+    detailProvider.textContent = item.dataset.provider;
+    detailInput.textContent = item.dataset.input;
+    const hasReasoning = item.dataset.reasoning === '1';
+    detailReasoning.textContent = hasReasoning ? '支持推理' : '不支持';
+    detailReasoning.className = 'detail-value' + (hasReasoning ? ' reasoning-yes' : '');
+    detailContext.textContent = item.dataset.context;
+  }
+
+  workItems.forEach(item => {
+    item.addEventListener('mouseenter', () => {
+      updateDetail(item);
+      const itemRect = item.getBoundingClientRect();
+      const dropdownRect = workDropdown.getBoundingClientRect();
+      const topOffset = itemRect.top - dropdownRect.top;
+      workDetail.style.top = topOffset + 'px';
+      workDetail.classList.add('visible');
+    });
+    item.addEventListener('mouseleave', () => {
+      workDetail.classList.remove('visible');
+    });
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      workItems.forEach(i => i.classList.remove('selected'));
+      item.classList.add('selected');
+      selectItem(item, 'work');
+      closeDropdown();
+    });
+  });
+
+  // Model search filter
+  const modelSearch = document.getElementById('modelSearch');
+  modelSearch.addEventListener('input', () => {
+    const q = modelSearch.value.toLowerCase();
+    workItems.forEach(item => {
+      const name = item.dataset.value.toLowerCase();
+      item.style.display = name.includes(q) ? '' : 'none';
+    });
+  });
+  modelSearch.addEventListener('click', (e) => e.stopPropagation());
+
+  function selectItem(item, mode) {
+    if (!item) return;
+    const label = item.dataset.value;
+    selectorLabel.textContent = label;
+  }
+
+  // Textarea auto-grow + send button state
+  msgInput.addEventListener('input', () => {
+    msgInput.style.height = 'auto';
+    msgInput.style.height = msgInput.scrollHeight + 'px';
+    sendBtn.classList.toggle('active', msgInput.value.trim().length > 0);
+  });
+
+  // Enter to send (Shift+Enter for newline)
+  msgInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (msgInput.value.trim()) {
+        sendBtn.classList.add('active');
+        // just a visual demo
+        msgInput.value = '';
+        msgInput.style.height = 'auto';
+        sendBtn.classList.remove('active');
+      }
+    }
+  });
+</script>
+</body>
+</html>
