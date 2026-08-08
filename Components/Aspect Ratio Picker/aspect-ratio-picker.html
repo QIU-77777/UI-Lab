@@ -82,6 +82,7 @@
     background:var(--panel);border:1px solid var(--line);border-radius:14px;
     padding:12px;display:none;gap:10px;flex-direction:column;
     box-shadow:var(--shadow-panel);z-index:20;transition:background .3s,border-color .3s}
+  .panel.dropDown{bottom:auto;top:calc(100% + 12px)}
   .panel.open{display:flex;animation:popUp .16s ease}
   @keyframes popUp{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
   .panel.aspect{width:min(500px,calc(100vw - 32px));max-width:calc(100vw - 32px)}
@@ -243,10 +244,19 @@
     return p;
   }
 
-  /* 面板左边缘统一与触发按钮对齐（left:0 由 CSS 控制）；仅在关闭时清除内联样式，不再左移 */
+  /* 面板左边缘统一与触发按钮对齐（left:0 由 CSS 控制）；
+     若向上展开会被顶部 sticky 导航栏遮挡，则自动改为向下展开。 */
   function fitPanel(panel, open){
     if (!panel) return;
-    if (!open){ panel.style.left = ''; panel.style.maxWidth = ''; }
+    if (!open){ panel.style.left = ''; panel.style.maxWidth = ''; panel.classList.remove('dropDown'); return; }
+    const check = () => {
+      const navHeight = 56 + 14; // navbar 56px + 留边
+      const rect = panel.getBoundingClientRect();
+      if (rect.top < navHeight){ panel.classList.add('dropDown'); }
+      else { panel.classList.remove('dropDown'); }
+    };
+    check();
+    requestAnimationFrame(check);
   }
   window.addEventListener('resize', () => popovers.forEach(p => { if (p.panel.classList.contains('open')) fitPanel(p.panel, 1); }));
 
