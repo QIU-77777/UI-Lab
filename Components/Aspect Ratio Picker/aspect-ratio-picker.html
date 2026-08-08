@@ -243,24 +243,10 @@
     return p;
   }
 
-  /* 防止展开面板超出卡片右边界，随视口实时校正 */
-  const cardEl = document.querySelector('.card');
+  /* 面板左边缘统一与触发按钮对齐（left:0 由 CSS 控制）；仅在关闭时清除内联样式，不再左移 */
   function fitPanel(panel, open){
     if (!panel) return;
-    if (!open){ panel.style.left = ''; panel.style.maxWidth = ''; return; }
-    const cardRect = cardEl.getBoundingClientRect();
-    const popover = panel.closest('.popover');
-    const popRect = popover ? popover.getBoundingClientRect() : panel.getBoundingClientRect();
-    const panelWidth = Math.min(500, Math.max(280, cardRect.width - 36));
-    panel.style.maxWidth = panelWidth + 'px';
-    const rightEdge = popRect.left + panelWidth;
-    const maxRight = cardRect.right - 18;
-    if (rightEdge > maxRight){
-      const shift = rightEdge - maxRight;
-      panel.style.left = `-${Math.min(shift, popRect.left - cardRect.left - 6)}px`;
-    } else {
-      panel.style.left = '';
-    }
+    if (!open){ panel.style.left = ''; panel.style.maxWidth = ''; }
   }
   window.addEventListener('resize', () => popovers.forEach(p => { if (p.panel.classList.contains('open')) fitPanel(p.panel, 1); }));
 
