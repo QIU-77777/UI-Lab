@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aspect Ratio Picker · Seeed AI Image Demo</title>
+<style>
+  :root{
+    --bg:#0e0e10; --bg-glow:#1b1b20; --card:#16161a; --panel:#1a1a1d; --panel-2:#232327;
+    --text:#f5f5f7; --muted:#9a9aa2; --accent:#6366f1; --line:#2c2c31;
+    --opt-text:#bbb; --icon:#777; --icon-hover:#aaa; --active-text:#fff;
+    --hover-bg:rgba(255,255,255,.07); --active-bg:rgba(255,255,255,.16);
+    --pill-hover:#2a2a2f; --submit-bg:#3a3a42; --submit-hover:#44444d;
+    --stage-bg:#0c0c0e; --dot:rgba(255,255,255,.10);
+    --ph:#555; --scroll-thumb:#3a3a42;
+    --shadow-card:none; --shadow-panel:none;
+  }
+  body.light{
+    --bg:#f5f5f7; --bg-glow:#e8e8ee; --card:#ffffff; --panel:#ffffff; --panel-2:#ececef;
+    --text:#1a1a1d; --muted:#6b6b73; --line:#ececf1;
+    --opt-text:#555; --icon:#adaeb4; --icon-hover:#555; --active-text:#1a1a1d;
+    --hover-bg:rgba(0,0,0,.045); --active-bg:rgba(0,0,0,.08);
+    --pill-hover:#e6e6ea; --submit-bg:#d8d8de; --submit-hover:#c8c8ce;
+    --stage-bg:#f0f0f3; --dot:rgba(0,0,0,.08);
+    --ph:#b8b8bf; --scroll-thumb:#c8c8ce;
+    --shadow-card:none; --shadow-panel:none;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;flex-direction:column;
+    background:radial-gradient(1200px 600px at 50% -10%,var(--bg-glow),var(--bg));
+    font-family:'Century Gothic','Hiragino Sans GB',system-ui,sans-serif;color:var(--text);
+    transition:background .3s,color .3s}
+  .navbar{display:flex;align-items:center;justify-content:space-between;height:56px;
+    padding:0 20px;background:var(--card);border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:50;transition:background .3s,border-color .3s}
+  .brand{display:flex;align-items:center;gap:8px}
+  .brand-name{font-size:15px;font-weight:500;letter-spacing:-.2px}
+  .theme-toggle{display:flex;align-items:center;justify-content:center;width:36px;height:36px;
+    border-radius:50%;border:none;background:transparent;color:var(--text);
+    cursor:pointer;transition:background .15s}
+  .theme-toggle:hover{background:var(--pill-hover)}
+  .theme-toggle .ic-sun{display:none}
+  body.light .theme-toggle .ic-moon{display:none}
+  body.light .theme-toggle .ic-sun{display:block}
+  .stage-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
+
+  /* Seeed AI Image 对话框 */
+  .card{position:relative;width:520px;background:var(--card);border:1px solid var(--line);
+    border-radius:24px;padding:18px 18px 16px;box-shadow:var(--shadow-card);transition:background .3s,border-color .3s}
+  .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .card-title{font-size:18px;font-weight:500;letter-spacing:-.2px}
+  .card-close{width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);font-size:20px;cursor:pointer;border-radius:8px}
+  .card-close:hover{background:var(--panel-2)}
+  .card textarea{width:100%;height:70px;background:transparent;border:none;resize:none;
+    color:var(--text);font-size:16px;font-family:inherit;outline:none;line-height:1.5}
+  .card textarea::placeholder{color:var(--ph)}
+  .toolbar{display:flex;align-items:center;gap:10px;margin-top:6px}
+  .pill{display:flex;align-items:center;gap:6px;background:transparent;border:1px solid transparent;
+    color:var(--text);border-radius:999px;padding:8px 13px;font-size:13px;cursor:pointer;font-family:inherit;transition:background .12s}
+  .pill .caret{display:flex;align-items:center;color:var(--muted);transition:transform .2s}
+  .pill .caret.up{transform:rotate(180deg)}
+  .pill .ratio-hint{font-size:11px;color:var(--muted);font-weight:400}
+  .trigger-label{display:inline-flex;align-items:baseline;gap:6px}
+  .pill:hover{background:var(--hover-bg)}
+  .popover:has(.panel.open) .pill{background:var(--active-bg)}
+  .submit{margin-left:auto;width:36px;height:36px;border-radius:50%;border:none;
+    background:var(--submit-bg);color:#fff;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;font-size:18px;transition:background .15s}
+  .submit:hover{background:var(--submit-hover)}
+
+  /* popover + 通用面板 + tooltip */
+  .popover{position:relative}
+  .tooltip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+    background:#000;color:#fff;padding:6px 10px;border-radius:8px;font-size:13px;
+    white-space:nowrap;opacity:0;pointer-events:none;transition:.15s;z-index:30}
+  .tooltip::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);
+    border:5px solid transparent;border-top-color:#000}
+  .tooltip.show{opacity:1}
+
+  .panel{position:absolute;bottom:calc(100% + 12px);left:0;width:240px;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:12px;display:none;gap:10px;flex-direction:column;
+    box-shadow:var(--shadow-panel);z-index:20;transition:background .3s,border-color .3s}
+  .panel.open{display:flex;animation:popUp .16s ease}
+  @keyframes popUp{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+  .panel.aspect{width:500px}
+  .panel.intensity{width:180px}
+  .panel-title{font-size:15px;font-weight:500;padding-bottom:2px}
+  .opts{display:flex;flex-direction:column;gap:4px}
+  .opts.scroll{max-height:200px;overflow-y:auto;padding-right:4px}
+  .opts.scroll::-webkit-scrollbar{width:6px}
+  .opts.scroll::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:3px}
+  .opts.scroll::-webkit-scrollbar-track{background:transparent}
+  .opt{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:9px 12px;border:1px solid transparent;border-radius:9px;background:transparent;
+    color:var(--opt-text);font-size:13px;cursor:pointer;text-align:left;font-family:inherit;transition:.12s}
+  .opt:hover{background:var(--hover-bg);color:var(--text)}
+  .opt.active{background:var(--active-bg);color:var(--active-text)}
+  .opt .name{flex:1;min-width:0}
+  .opt .price{font-size:11px;color:#777;font-weight:400;white-space:nowrap;flex:none}
+
+  .panel-body{display:flex;gap:16px}
+  .presets{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:1}
+  .preset{position:relative;padding:10px 12px 10px 34px;border:1px solid transparent;border-radius:10px;
+    background:transparent;color:var(--opt-text);font-size:13px;cursor:pointer;
+    text-align:left;font-family:inherit;transition:.12s}
+  .preset::before{content:"";position:absolute;left:12px;top:50%;transform:translateY(-50%);
+    width:var(--iw,12px);height:var(--ih,12px);border:1.5px solid var(--icon);border-radius:2px;transition:.12s}
+  .preset:hover{background:var(--hover-bg);color:var(--text)}
+  .preset:hover::before{border-color:var(--icon-hover)}
+  .preset.active{background:var(--active-bg);color:var(--active-text)}
+  .preset.active::before{background:var(--active-text);border-color:var(--active-text)}
+
+  .preview{flex:0 0 200px;display:flex;flex-direction:column;align-items:center;gap:10px}
+  .stage{position:relative;width:200px;height:200px;border-radius:10px;overflow:hidden;
+    border:1px solid var(--line);background-color:var(--stage-bg);
+    background-image:radial-gradient(var(--dot) 1px, transparent 1.4px);
+    background-size:14px 14px;background-position:7px 7px;transition:background-color .3s}
+  .rect{position:absolute;background:linear-gradient(135deg,#6366f1,#a855f7);
+    border-radius:6px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);cursor:default}
+  .handle{position:absolute;width:12px;height:12px;border-radius:3px;background:#fff;
+    transform:translate(-50%,-50%);box-shadow:0 1px 4px rgba(0,0,0,.5);z-index:2}
+  .handle.tl{left:0;top:0;cursor:nwse-resize}
+  .handle.tr{left:100%;top:0;cursor:nesw-resize}
+  .handle.bl{left:0;top:100%;cursor:nesw-resize}
+  .handle.br{left:100%;top:100%;cursor:nwse-resize}
+
+  .inputs{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)}
+  .inputs input{width:64px;background:var(--panel-2);border:1px solid transparent;
+    color:var(--text);border-radius:10px;padding:10px 8px;text-align:center;font-family:inherit;font-size:14px}
+  .inputs input:focus{outline:none;border-color:var(--accent)}
+</style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="brand">
+      <span class="brand-name">AI Image</span>
+    </div>
+    <button class="theme-toggle" id="themeToggle" aria-label="切换深浅主题">
+      <svg class="ic-moon" width="20" height="20" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <svg class="ic-sun" width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+  </nav>
+  <main class="stage-wrap">
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">Generate AI Image</div>
+      <div class="card-close">×</div>
+    </div>
+    <textarea placeholder="Describe the image, key visual, or poster you want to create"></textarea>
+    <div class="toolbar">
+
+      <!-- 模型选择 -->
+      <div class="popover" data-pop="model">
+        <div class="tooltip" id="modelTooltip">Model</div>
+        <button class="pill" id="modelTrigger">
+          <span id="modelText">GPT Image 2</span>
+          <span class="caret"><svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 1 L5 5 L9 1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        </button>
+        <div class="panel" id="modelPanel">
+          <div class="panel-title">Model</div>
+          <div class="opts scroll" id="modelOpts"></div>
+        </div>
+      </div>
+
+      <!-- 宽高比 -->
+      <div class="popover" data-pop="aspect">
+        <div class="tooltip" id="tooltip">Aspect ratio</div>
+        <button class="pill" id="trigger">
+          <span class="trigger-label"><span id="triggerText">Auto</span><span id="triggerRatio" class="ratio-hint">16 : 9</span></span>
+          <span class="caret" id="caret"><svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 1 L5 5 L9 1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        </button>
+        <div class="panel aspect" id="panel">
+          <div class="panel-title">Aspect ratio</div>
+          <div class="panel-body">
+            <div class="presets" id="presets"></div>
+            <div class="preview">
+              <div class="stage" id="stage">
+                <div class="rect" id="rect">
+                  <span class="handle tl"></span><span class="handle tr"></span>
+                  <span class="handle bl"></span><span class="handle br"></span>
+                </div>
+              </div>
+              <div class="inputs">
+                <input id="inW" type="number" min="1" max="999" value="16">
+                <span>:</span>
+                <input id="inH" type="number" min="1" max="999" value="9">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 思考强度 -->
+      <div class="popover" data-pop="intensity">
+        <div class="tooltip" id="intensityTooltip">Thinking intensity</div>
+        <button class="pill" id="intensityTrigger">
+          <span id="intensityText">Medium</span>
+          <span class="caret"><svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 1 L5 5 L9 1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        </button>
+        <div class="panel intensity" id="intensityPanel">
+          <div class="panel-title">Thinking intensity</div>
+          <div class="opts" id="intensityOpts"></div>
+        </div>
+      </div>
+
+      <button class="submit"><svg width="18" height="18" viewBox="0 0 18 18"><path d="M9 4 L9 14 M5 8 L9 4 L13 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
+  </div>
+  </main>
+
+<script>
+  const $ = s => document.querySelector(s);
+  const gcd = (a,b) => b ? gcd(b, a%b) : a;
+  const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi, v));
+
+  /* ---------- 通用 popover 管理：一次只开一个，向上展开 ---------- */
+  const popovers = [];
+  function registerPopover(trigger, caret, panel){
+    const p = {trigger, caret, panel};
+    popovers.push(p);
+    trigger.addEventListener('click', e => {
+      e.stopPropagation();
+      const willOpen = !panel.classList.contains('open');
+      popovers.forEach(q => { q.panel.classList.remove('open'); if (q.caret) q.caret.classList.remove('up'); });
+      if (willOpen){ panel.classList.add('open'); if (caret) caret.classList.add('up'); }
+    });
+    return p;
+  }
+
+  /* 通用 hover 浮窗：悬停 pill 显示 tooltip，面板打开或移开时隐藏 */
+  function attachTooltip(triggerEl, tip){
+    triggerEl.addEventListener('mouseenter', () => {
+      if (!popovers.some(p => p.panel.classList.contains('open'))) tip.classList.add('show');
+    });
+    triggerEl.addEventListener('mouseleave', () => tip.classList.remove('show'));
+    triggerEl.addEventListener('click', () => tip.classList.remove('show'));
+  }
+
+  /* ---------- 模型选择 ---------- */
+  const MODELS = [
+    {key:'gpt2',     label:'GPT Image 2',          price:'¥0.4/张'},
+    {key:'nano',     label:'Nano Banana Pro',      price:'¥0.3/张'},
+    {key:'mj8',      label:'Midjourney v8',        price:'¥0.6/张'},
+    {key:'flux2',    label:'FLUX.2',               price:'¥0.4/张'},
+    {key:'seedream', label:'Seedream V5',          price:'¥0.15/张'},
+    {key:'ideogram', label:'Ideogram 4.0',         price:'¥0.35/张'},
+    {key:'recraft',  label:'Recraft V4',           price:'¥0.45/张'},
+    {key:'firefly',  label:'Adobe Firefly',        price:'¥0.5/张'},
+    {key:'sd35',     label:'Stable Diffusion 3.5', price:'¥0/张'},
+  ];
+  const modelState = {selected:'gpt2'};
+  const modelTrigger = $('#modelTrigger'), modelText = $('#modelText'), modelPanel = $('#modelPanel');
+  function buildOptions(container, items, state, onSelect){
+    items.forEach(it => {
+      const b = document.createElement('button');
+      b.className = 'opt'; b.dataset.key = it.key;
+      b.innerHTML = `<span class="name">${it.label}</span>` + (it.price !== undefined ? `<span class="price">${it.price}</span>` : '');
+      b.onclick = () => {
+        state.selected = it.key;
+        [...container.children].forEach(c => c.classList.toggle('active', c.dataset.key === it.key));
+        onSelect && onSelect(it);
+      };
+      container.appendChild(b);
+    });
+    const init = container.querySelector(`[data-key="${state.selected}"]`);
+    if (init) init.classList.add('active');
+  }
+  buildOptions($('#modelOpts'), MODELS, modelState, it => {
+    modelText.textContent = it.label;
+    modelPanel.classList.remove('open'); $('#modelTrigger').querySelector('.caret').classList.remove('up');
+  });
+  registerPopover(modelTrigger, modelTrigger.querySelector('.caret'), modelPanel);
+
+  /* ---------- 思考强度 ---------- */
+  const INTENSITIES = [
+    {key:'low',    label:'Low'},
+    {key:'medium', label:'Medium'},
+    {key:'high',   label:'High'},
+    {key:'max',    label:'Max'},
+  ];
+  const intensityState = {selected:'medium'};
+  const intensityTrigger = $('#intensityTrigger'), intensityText = $('#intensityText'), intensityPanel = $('#intensityPanel');
+  buildOptions($('#intensityOpts'), INTENSITIES, intensityState, it => {
+    intensityText.textContent = it.label;
+    intensityPanel.classList.remove('open'); intensityTrigger.querySelector('.caret').classList.remove('up');
+  });
+  registerPopover(intensityTrigger, intensityTrigger.querySelector('.caret'), intensityPanel);
+
+  /* ---------- 宽高比组件 ---------- */
+  const PRESETS = [
+    {key:'auto',  name:'Auto',       w:16, h:9},
+    {key:'wide',  name:'Widescreen', w:16, h:9},
+    {key:'photo', name:'Photo',      w:3,  h:2},
+    {key:'land',  name:'Landscape',  w:4,  h:3},
+    {key:'square',name:'Square',     w:1,  h:1},
+    {key:'port',  name:'Portrait',   w:2,  h:3},
+    {key:'tall',  name:'Tall',       w:9,  h:16},
+    {key:'phone', name:'Phone',      w:9,  h:19},
+    {key:'custom',name:'Custom',     w:null,h:null},
+  ];
+  const STAGE = 200, PAD = 14, BOX = STAGE - PAD * 2, MIN = 24;
+
+  const state = {preset:'auto'};
+  let previewRatio = null;
+  let geom = ratioToGeom(16, 9);
+  let dragCorner = null, stageRect = null;
+
+  const trigger = $('#trigger'), caret = $('#caret'), tooltip = $('#tooltip'), panel = $('#panel'), presetsEl = $('#presets');
+  const rect = $('#rect'), stageEl = $('#stage'), inW = $('#inW'), inH = $('#inH'), triggerText = $('#triggerText'), triggerRatio = $('#triggerRatio');
+
+  function toIntegerRatio(rf){
+    let best = [1,1], bestErr = Infinity;
+    for (let d = 1; d <= 32; d++){
+      const n = Math.max(1, Math.round(rf * d));
+      const err = Math.abs(n/d - rf);
+      if (err < bestErr){ bestErr = err; best = [n, d]; }
+    }
+    const g = gcd(best[0], best[1]);
+    return [best[0]/g, best[1]/g];
+  }
+  function ratioToGeom(w, h){
+    const scale = Math.min(BOX/w, BOX/h);
+    const rw = w*scale, rh = h*scale;
+    return { x: PAD + (BOX-rw)/2, y: PAD + (BOX-rh)/2, w: rw, h: rh };
+  }
+  const geomRatio = () => toIntegerRatio(geom.w / geom.h);
+
+  function render(){
+    const d = previewRatio ? ratioToGeom(previewRatio.w, previewRatio.h) : geom;
+    rect.style.left = d.x+'px'; rect.style.top = d.y+'px';
+    rect.style.width = d.w+'px'; rect.style.height = d.h+'px';
+    const [iw, ih] = previewRatio ? [previewRatio.w, previewRatio.h] : geomRatio();
+    inW.value = iw; inH.value = ih;
+    triggerText.textContent = state.preset === 'custom'
+      ? 'Custom' : PRESETS.find(p => p.key === state.preset).name;
+    triggerRatio.textContent = `${iw} : ${ih}`;
+    [...presetsEl.children].forEach(b => b.classList.toggle('active', b.dataset.key === state.preset));
+  }
+
+  function setRatio(w, h, preset){
+    previewRatio = null;
+    w = Math.max(1, Math.round(w)); h = Math.max(1, Math.round(h));
+    const g = gcd(w, h);
+    geom = ratioToGeom(w/g, h/g);
+    if (preset) state.preset = preset; else state.preset = 'custom';
+    render();
+  }
+
+  PRESETS.forEach(p => {
+    const b = document.createElement('button');
+    b.className = 'preset'; b.dataset.key = p.key;
+    b.textContent = p.name;
+    // 左侧小矩形图标尺寸与该预设比例一致（最大边 12px）
+    const iconMax = 12;
+    const iw = (p.w || 1) * (iconMax / Math.max(p.w || 1, p.h || 1));
+    const ih = (p.h || 1) * (iconMax / Math.max(p.w || 1, p.h || 1));
+    b.style.setProperty('--iw', iw + 'px');
+    b.style.setProperty('--ih', ih + 'px');
+    b.onclick = () => {
+      if (p.key === 'custom') setRatio(...geomRatio(), 'custom');
+      else setRatio(p.w, p.h, p.key);
+    };
+    if (p.key !== 'custom'){
+      b.addEventListener('mouseenter', () => { previewRatio = {w:p.w, h:p.h}; render(); });
+      b.addEventListener('mouseleave', () => { previewRatio = null; render(); });
+    }
+    presetsEl.appendChild(b);
+  });
+
+  registerPopover(trigger, caret, panel);
+  attachTooltip(trigger, tooltip);
+  attachTooltip(modelTrigger, $('#modelTooltip'));
+  attachTooltip(intensityTrigger, $('#intensityTooltip'));
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.popover')){
+      popovers.forEach(q => { q.panel.classList.remove('open'); if (q.caret) q.caret.classList.remove('up'); });
+    }
+  });
+
+  inW.oninput = () => setRatio(+inW.value || 1, +inH.value || 1);
+  inH.oninput = () => setRatio(+inW.value || 1, +inH.value || 1);
+
+  function clampGeom(g){
+    let {x,y,w,h} = g;
+    w = Math.max(MIN, w); h = Math.max(MIN, h);
+    x = clamp(x, PAD, STAGE-PAD-MIN);
+    y = clamp(y, PAD, STAGE-PAD-MIN);
+    w = Math.min(w, STAGE-PAD - x);
+    h = Math.min(h, STAGE-PAD - y);
+    return {x, y, w, h};
+  }
+  rect.querySelectorAll('.handle').forEach(h => {
+    h.addEventListener('pointerdown', e => {
+      e.preventDefault(); e.stopPropagation();
+      dragCorner = h.classList.contains('tl') ? 'tl'
+                 : h.classList.contains('tr') ? 'tr'
+                 : h.classList.contains('bl') ? 'bl' : 'br';
+      stageRect = stageEl.getBoundingClientRect();
+      state.preset = 'custom';
+    });
+  });
+  window.addEventListener('pointermove', e => {
+    if (!dragCorner) return;
+    const px = clamp(e.clientX - stageRect.left, PAD, STAGE-PAD);
+    const py = clamp(e.clientY - stageRect.top,  PAD, STAGE-PAD);
+    let {x,y,w,h} = geom;
+    const right = x + w, bottom = y + h;
+    if (dragCorner === 'br'){ w = px - x;        h = py - y; }
+    if (dragCorner === 'tr'){ w = px - x;        h = bottom - py; y = py; }
+    if (dragCorner === 'bl'){ w = right - px; x = px; h = py - y; }
+    if (dragCorner === 'tl'){ w = right - px; x = px; h = bottom - py; y = py; }
+    geom = clampGeom({x, y, w, h});
+    render();
+  });
+  window.addEventListener('pointerup', () => dragCorner = null);
+
+  /* ---------- 深浅主题切换 ---------- */
+  const themeToggle = $('#themeToggle');
+  const applyTheme = t => document.body.classList.toggle('light', t === 'light');
+  applyTheme(localStorage.getItem('theme') || 'dark');
+  themeToggle.addEventListener('click', () => {
+    const next = document.body.classList.contains('light') ? 'dark' : 'light';
+    applyTheme(next);
+    localStorage.setItem('theme', next);
+  });
+
+  render();
+</script>
+</body>
+</html>
