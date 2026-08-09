@@ -238,27 +238,35 @@
     trigger.addEventListener('click', e => {
       e.stopPropagation();
       const willOpen = !panel.classList.contains('open');
-      popovers.forEach(q => { q.panel.classList.remove('open'); if (q.caret) q.caret.classList.remove('up'); fitPanel(q.panel, 0); });
-      if (willOpen){ panel.classList.add('open'); if (caret) caret.classList.add('up'); fitPanel(panel, 1); }
+      popovers.forEach(q => { q.panel.classList.remove('open'); if (q.caret) q.caret.classList.remove('up'); fitPanel(q.panel, q.trigger, 0); });
+      if (willOpen){ panel.classList.add('open'); if (caret) caret.classList.add('up'); fitPanel(panel, trigger, 1); }
     });
     return p;
   }
 
   /* 面板左边缘统一与触发按钮对齐（left:0 由 CSS 控制）；
-     若向上展开会被顶部 sticky 导航栏遮挡，则自动改为向下展开。 */
-  function fitPanel(panel, open){
+     若向上展开会被顶部 sticky 导航栏遮挡，则自动改为向下展开。
+     用「触发按钮位置 + 面板真实高度」推算向上展开后的 top，避免受面板
+     自身 popUp 动画 transform 影响而测到偏高的 top；且 dropDown 一旦
+     加上就不在本次检查中移除，避免 rAF 二次检查把已翻下的面板误判回翻上。 */
+  function fitPanel(panel, trigger, open){
     if (!panel) return;
     if (!open){ panel.style.left = ''; panel.style.maxWidth = ''; panel.classList.remove('dropDown'); return; }
+    const navHeight = 56 + 14; // navbar 56px + 留边
     const check = () => {
-      const navHeight = 56 + 14; // navbar 56px + 留边
-      const rect = panel.getBoundingClientRect();
-      if (rect.top < navHeight){ panel.classList.add('dropDown'); }
-      else { panel.classList.remove('dropDown'); }
+      if (panel.classList.contains('dropDown')) return; // 已向下展开则不再回翻，防二次误判
+      const ref = trigger || panel.parentElement;
+      const r = ref.getBoundingClientRect();
+      const h = panel.offsetHeight;          // offsetHeight 不受自身 transform 影响
+      const upwardTop = r.top - h - 12;      // 向上展开时 top = 触发按钮 top - 12 - 面板高
+      if (upwardTop < navHeight) panel.classList.add('dropDown');
     };
     check();
     requestAnimationFrame(check);
   }
-  window.addEventListener('resize', () => popovers.forEach(p => { if (p.panel.classList.contains('open')) fitPanel(p.panel, 1); }));
+  window.addEventListener('resize', () => popovers.forEach(p => {
+    if (p.panel.classList.contains('open')){ p.panel.classList.remove('dropDown'); fitPanel(p.panel, p.trigger, 1); }
+  }));
 
   /* 通用 hover 浮窗：悬停 pill 显示 tooltip，面板打开或移开时隐藏 */
   function attachTooltip(triggerEl, tip){
