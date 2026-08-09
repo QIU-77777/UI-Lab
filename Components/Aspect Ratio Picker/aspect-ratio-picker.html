@@ -82,10 +82,10 @@
     background:var(--panel);border:1px solid var(--line);border-radius:14px;
     padding:12px;display:none;gap:10px;flex-direction:column;
     box-shadow:var(--shadow-panel);z-index:20;transition:background .3s,border-color .3s}
-  /* 面板统一以 bottom sheet 形式从视口底部升起，避免被顶部导航栏遮挡 */
+  /* 面板统一以 bottom sheet 形式从视口底部升起，避免被顶部导航栏遮挡；
+     水平 left 由 JS 设为与触发按钮左边缘对齐（相对位置不变），不做居中。 */
   .panel.open{
-    position:fixed;left:50%;bottom:0;top:auto;
-    transform:translateX(-50%);
+    position:fixed;left:0;bottom:0;top:auto;
     width:min(240px,calc(100vw - 32px));max-width:min(240px,calc(100vw - 32px));
     max-height:min(420px,calc(100vh - 80px));
     border-radius:16px 16px 0 0;
@@ -94,7 +94,7 @@
     z-index:100}
   .panel.aspect.open{width:min(500px,calc(100vw - 32px));max-width:min(500px,calc(100vw - 32px))}
   .panel.intensity.open{width:min(180px,calc(100vw - 32px));max-width:min(180px,calc(100vw - 32px))}
-  @keyframes sheetUp{from{opacity:0;transform:translate(-50%,100%)}to{opacity:1;transform:translate(-50%,0)}}
+  @keyframes sheetUp{from{opacity:0;transform:translateY(100%)}to{opacity:1;transform:translateY(0)}}
   .panel.aspect{width:min(500px,calc(100vw - 32px));max-width:calc(100vw - 32px)}
   .panel.intensity{width:180px}
   .panel-title{font-size:15px;font-weight:500;padding-bottom:2px}
@@ -249,19 +249,28 @@
       e.stopPropagation();
       const willOpen = !panel.classList.contains('open');
       popovers.forEach(q => { q.panel.classList.remove('open'); if (q.caret) q.caret.classList.remove('up'); fitPanel(q.panel, 0); });
-      if (willOpen){ panel.classList.add('open'); if (caret) caret.classList.add('up'); fitPanel(panel, 1); }
+      if (willOpen){ panel.classList.add('open'); if (caret) caret.classList.add('up'); fitPanel(panel, 1, trigger); }
     });
     return p;
   }
 
   /* 面板统一以 bottom sheet 形式从 iframe/视口底部升起，避免被顶部 sticky 导航栏遮挡。
-     打开路径由 CSS .panel.open 处理固定定位；关闭路径清理可能残留的内联样式。 */
-  function fitPanel(panel, open){
+     打开时把水平 left 设为与触发按钮左边缘对齐（相对位置不变）：测按钮位置、按面板
+     宽度贴边夹紧，避免越过视口左右边界。关闭路径清理内联样式。 */
+  function fitPanel(panel, open, trigger){
     if (!panel) return;
     if (!open){ panel.style.left = ''; panel.style.maxWidth = ''; return; }
+    const ref = trigger || panel.parentElement;
+    const r = ref.getBoundingClientRect();
+    const pw = panel.offsetWidth;
+    const vw = window.innerWidth || document.documentElement.clientWidth;
+    let left = r.left;                                   // 与按钮左边缘对齐
+    if (left + pw > vw - 8) left = Math.max(8, vw - pw - 8); // 右侧溢出则左移
+    left = Math.max(8, left);                            // 左侧贴边夹紧
+    panel.style.left = left + 'px';
   }
   window.addEventListener('resize', () => popovers.forEach(p => {
-    if (p.panel.classList.contains('open')) fitPanel(p.panel, 1);
+    if (p.panel.classList.contains('open')) fitPanel(p.panel, 1, p.trigger);
   }));
 
   /* 通用 hover 浮窗：悬停 pill 显示 tooltip，面板打开或移开时隐藏 */
