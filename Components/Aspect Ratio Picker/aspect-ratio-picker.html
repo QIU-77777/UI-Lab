@@ -245,21 +245,22 @@
   }
 
   /* 面板左边缘统一与触发按钮对齐（left:0 由 CSS 控制）；
-     若向上展开会被顶部 sticky 导航栏遮挡，则自动改为向下展开。
+     默认向上展开；仅当「向上展开会超出 iframe 顶部（被裁剪/贴边）」时才翻向下。
      用「触发按钮位置 + 面板真实高度」推算向上展开后的 top，避免受面板
      自身 popUp 动画 transform 影响而测到偏高的 top；且 dropDown 一旦
      加上就不在本次检查中移除，避免 rAF 二次检查把已翻下的面板误判回翻上。 */
   function fitPanel(panel, trigger, open){
     if (!panel) return;
     if (!open){ panel.style.left = ''; panel.style.maxWidth = ''; panel.classList.remove('dropDown'); return; }
-    const navHeight = 56 + 14; // navbar 56px + 留边
+    const EDGE = 8; // 距 iframe 顶部留边，避免面板顶边贴死顶部
     const check = () => {
       if (panel.classList.contains('dropDown')) return; // 已向下展开则不再回翻，防二次误判
       const ref = trigger || panel.parentElement;
       const r = ref.getBoundingClientRect();
       const h = panel.offsetHeight;          // offsetHeight 不受自身 transform 影响
       const upwardTop = r.top - h - 12;      // 向上展开时 top = 触发按钮 top - 12 - 面板高
-      if (upwardTop < navHeight) panel.classList.add('dropDown');
+      // 真实嵌入中 iframe 通常远低于站点导航栏，故不会误翻；仅无空间向上时才向下。
+      if (upwardTop < EDGE) panel.classList.add('dropDown');
     };
     check();
     requestAnimationFrame(check);
